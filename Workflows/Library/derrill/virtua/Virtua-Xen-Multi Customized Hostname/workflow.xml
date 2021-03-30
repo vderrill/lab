@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ns2:workflow xmlns:ns2="http://vmware.com/vco/workflow" root-name="item4" object-name="workflow:name=generic" id="b9dc7d57-a31e-4a63-8fea-f950fafb1361" editor-version="2.0" version="2.2.0" api-version="6.0.0" allowed-operations="vef" restartMode="1" resumeFromFailedMode="0">
+    <display-name>Virtua-Xen-Multi Customized Hostname</display-name>
+    <position y="50.0" x="100.0"/>
+    <input>
+        <param name="inputProperties" type="Properties"/>
+    </input>
+    <output>
+        <param name="resourceNames" type="Array/string"/>
+    </output>
+    <attrib name="numberOfDigits" type="number" conf-id="3af399d6-9cfa-43e8-b91e-77acac10e36c" conf-key="numberOfDigits">
+        <description>* read from Configuration page</description>
+    </attrib>
+    <attrib name="startingSequential" type="number" conf-id="3af399d6-9cfa-43e8-b91e-77acac10e36c" conf-key="startingSequential">
+        <description>* read from Configuration page</description>
+    </attrib>
+    <attrib name="resourceNamesCount" type="number">
+        <value encoded="n"/>
+    </attrib>
+    <attrib name="computerNamesArray" type="Array/string">
+        <value encoded="n">[]</value>
+    </attrib>
+    <attrib name="applicationName" type="string">
+        <value encoded="n"></value>
+    </attrib>
+    <attrib name="enviro" type="string">
+        <value encoded="n"></value>
+    </attrib>
+    <attrib name="name" type="string">
+        <value encoded="n"></value>
+    </attrib>
+    <attrib name="computerName" type="string">
+        <value encoded="n"></value>
+    </attrib>
+    <attrib name="location" type="string">
+        <value encoded="n"></value>
+    </attrib>
+    <attrib name="xenVersion" type="string">
+        <value encoded="n"></value>
+    </attrib>
+    <attrib name="inputNames" type="Array/string">
+        <value encoded="n">[]</value>
+    </attrib>
+    <workflow-item name="item0" type="end" end-mode="0" comparator="0">
+        <in-binding/>
+        <out-binding/>
+        <position y="50.0" x="551.0"/>
+    </workflow-item>
+    <workflow-item name="item1" out-name="item0" type="task" comparator="0">
+        <display-name>Return name to vRA</display-name>
+        <script encoded="false">resourceNames = [];
+resourceNames = computerNamesArray
+</script>
+        <in-binding>
+            <bind name="inputProperties" type="Properties" export-name="inputProperties"/>
+            <bind name="computerName" type="string" export-name="computerName"/>
+            <bind name="computerNamesArray" type="Array/string" export-name="computerNamesArray"/>
+        </in-binding>
+        <out-binding>
+            <bind name="resourceNames" type="Array/string" export-name="resourceNames"/>
+        </out-binding>
+        <description>Simple task with custom script capability.</description>
+        <position y="60.0" x="360.0"/>
+    </workflow-item>
+    <workflow-item name="item3" out-name="item1" type="task" comparator="0">
+        <display-name>Generate name</display-name>
+        <script encoded="false">computerNamesArray = [];
+var partOne;
+for (n = 0; n &lt; resourceNamesCount; n++) {
+System.log('---- BUILDING NAME FOR MACHINE ' + n + '-----');
+
+// Generating a hostname consists of the letters in front (partOne), 
+// and the numbers at the end (partTwo). First determine the letters
+System.log('   Generating custom naming template');
+partOne = 'X' + xenVersion + location + '-' + applicationName; 
+// }
+
+
+// Work on partTwo, the sequential
+// Put placeholder 'X'; in the middle as per numberOfDigits (for the yet unknown partTwo) to create the template
+hash = ''
+for (i=0; i &lt; numberOfDigits; i++) hash += 'X';
+template = partOne + hash 
+System.log('   Hostname will be in the format ' + template);
+
+// Now that we have our template, check in Orchestrator 'Configurations' to find the history of this template
+System.log('   Checking Configuration Elements to see if we used ' + template + ' before and if so what was the last sequential');
+System.log('   If not found then we will create a new entry for this template and use starting number ' + startingSequential);
+// Get a link to the Configuration repository
+categoryList = Server.getAllConfigurationElementCategories();
+System.log("   The category list is " + categoryList.length + " long.");
+category = Server.getConfigurationElementCategoryWithPath('Library/derrill')
+elementList = category.configurationElements
+System.log('   There are ' + elementList.length + ' elements.')
+
+// In the repository find out list of previous naming templates
+for (j in elementList) {
+    if (elementList[j].name == 'Multi Server Naming List') {
+        System.log('Found the naming list Configuration Element')
+        targetElement = elementList[j]
+        break
+    }
+}
+if (typeof targetElement == 'undefined') { // If not found, create the Configuration Element
+    System.warn('   Could not find a vRO configuration called Multi Server Naming List');
+    System.warn('   Creating one now');
+    Server.createConfigurationElement('Library/derrill','Multi Server Naming List');
+}
+// Get our template out of the Configuration Element
+targetSequence = targetElement.getAttributeWithKey(template);
+if (targetSequence != null ) {
+    sequential = targetSequence.value;
+    sequential++;  // Increment the sequence #
+    if (sequential.toString().length &gt; numberOfDigits) sequential = startingSequential // sequential rollover 
+    System.log('   This sequence was used before, will be using the next sequential ' + sequential);
+} else {
+    System.log('   This hostname pattern was not used before. Will use the starting sequential of ' + startingSequential);
+    sequential = startingSequential;
+}
+// Store the new sequential for the next time this is run
+targetElement.setAttributeWithKey(template, sequential, 'number');
+
+// Now that we have the sequential for partTwo, pad it with leading zeros to get the correct length
+partTwo = sequential.toString();
+while (partTwo.length &lt; numberOfDigits) partTwo = '0' + partTwo;
+System.log('&gt; Numerical value was calculated to be ' + partTwo);
+
+// Now put all the pieces togther to make the new hostname
+computerName = (partOne + partTwo);
+enviroLetter = enviro.substring(0.1).toUpperCase();
+if (enviroLetter != 'P') computerName = computerName + '-' + enviroLetter;
+System.log('   Generated computerName for server ' + n + ' is ' + computerName);
+computerNamesArray[n] = computerName.toLowerCase();
+}
+
+
+</script>
+        <in-binding>
+            <bind name="numberOfDigits" type="number" export-name="numberOfDigits"/>
+            <bind name="startingSequential" type="number" export-name="startingSequential"/>
+            <bind name="resourceNamesCount" type="number" export-name="resourceNamesCount"/>
+            <bind name="name" type="string" export-name="name"/>
+            <bind name="applicationName" type="string" export-name="applicationName"/>
+            <bind name="enviro" type="string" export-name="enviro"/>
+            <bind name="xenVersion" type="string" export-name="xenVersion"/>
+            <bind name="location" type="string" export-name="location"/>
+        </in-binding>
+        <out-binding>
+            <bind name="computerName" type="string" export-name="computerName"/>
+            <bind name="computerNamesArray" type="Array/string" export-name="computerNamesArray"/>
+        </out-binding>
+        <description>Generates the actual name to be used</description>
+        <position y="60.0" x="260.0"/>
+    </workflow-item>
+    <workflow-item name="item4" out-name="item3" type="task" comparator="0">
+        <display-name>Get data from vRA</display-name>
+        <script encoded="false">var customProps = inputProperties.get("customProperties");
+inputNames = inputProperties.get("resourceNames");
+var name = inputNames[0];
+enviro = customProps.get("Environment");
+location = customProps.get("location");
+applicationName = customProps.get("applicationName");
+xenVersion = customProps.get("xenVersion");
+resourceNamesCount = (inputProperties.resourceNames).length;
+
+/* name = 'testvm'
+enviro = 'T'
+location = 'pa'
+xenVersion = '7'
+applicationName = 'kron'
+resourceNamesCount = 1 // (inputProperties.resourceNames).length;
+*/ 
+
+System.log('For this naming request there are ' + resourceNamesCount + ' VMs');
+System.log("----- START CREATE HOSTNAME WORKFLOW ----");
+System.log("Creating hostname for " + name);
+System.log('   Environment is ' + enviro);
+System.log('   Location Name is ' + location);
+System.log('   Xen version is ' + xenVersion);
+System.log('   Application Name is ' + applicationName);
+
+
+</script>
+        <in-binding>
+            <bind name="inputProperties" type="Properties" export-name="inputProperties"/>
+        </in-binding>
+        <out-binding>
+            <bind name="resourceNamesCount" type="number" export-name="resourceNamesCount"/>
+            <bind name="name" type="string" export-name="name"/>
+            <bind name="applicationName" type="string" export-name="applicationName"/>
+            <bind name="enviro" type="string" export-name="enviro"/>
+            <bind name="location" type="string" export-name="location"/>
+            <bind name="xenVersion" type="string" export-name="xenVersion"/>
+            <bind name="inputNames" type="Array/string" export-name="inputNames"/>
+        </out-binding>
+        <description>Simple task with custom script capability.</description>
+        <position y="60.0" x="160.0"/>
+    </workflow-item>
+</ns2:workflow>
