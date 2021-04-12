@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ns2:workflow xmlns:ns2="http://vmware.com/vco/workflow" root-name="item2" object-name="workflow:name=generic" id="cb3b7dcf-6cf7-4c5b-b0ab-cb9ba3b79872" editor-version="2.0" version="1.0.0" api-version="6.0.0" restartMode="1" resumeFromFailedMode="0">
+    <display-name>Change deployment name</display-name>
+    <position y="50.0" x="100.0"/>
+    <input>
+        <param name="inputProperties" type="Properties"/>
+    </input>
+    <output/>
+    <attrib name="restHost" type="REST:RESTHost">
+        <value encoded="n">dunes://service.dunes.ch/CustomSDKObject?id='fa8a1ff2-e533-4699-8fad-fd34eae71249'&amp;dunesName='REST:RESTHost'</value>
+    </attrib>
+    <attrib name="contentAsString" type="string">
+        <value encoded="n"></value>
+    </attrib>
+    <attrib name="content" type="string">
+        <value encoded="n"></value>
+    </attrib>
+    <attrib name="vmName" type="string">
+        <value encoded="n"></value>
+    </attrib>
+    <attrib name="deploymentId" type="string">
+        <value encoded="n"></value>
+    </attrib>
+    <attrib name="password" type="SecureString">
+        <value encoded="n">12BN33U36J30K30O2EW53N74W65Z65L6CL65I73V75B00FCKCBBE7C7IB12B2A4N20505FDG3963AE1WA7AAF40V44C0F2EY3937C1BUCFD9909H9E59E79K20556F0UFF496E3YC1AA172SE8F575DS622D076Q4A58A33KFC7010BLB87D6DFQB598001T4C26357H</value>
+    </attrib>
+    <attrib name="username" type="string">
+        <value encoded="n">admin</value>
+    </attrib>
+    <attrib name="token" type="string">
+        <value encoded="n"></value>
+    </attrib>
+    <workflow-item name="item0" type="end" end-mode="0" comparator="0">
+        <in-binding/>
+        <out-binding/>
+        <position y="50.0" x="700.0"/>
+    </workflow-item>
+    <workflow-item name="item1" out-name="item3" type="task" comparator="0">
+        <display-name>Get access token</display-name>
+        <script encoded="false">System.log('Getting access token');&#13;
+System.log('  Building REST request');&#13;
+// Get refresh token&#13;
+var body = '{ "username":"' + username +'", "password":"' + password + '" }';&#13;
+System.log('  Connecting with username ' + username);&#13;
+var req = restHost.createRequest("POST", "/csp/gateway/am/api/login?access_token", body);&#13;
+req.setHeader("Content-Type", "application/json");&#13;
+System.log('  Sending REST call now');&#13;
+var response = req.execute();&#13;
+System.log('  Status code: ' + response.statusCode);&#13;
+var contentAsString = response.contentAsString;&#13;
+System.debug('  Content: ' + contentAsString);&#13;
+&#13;
+// Dig out refresh token&#13;
+var refreshTokenObj = JSON.parse(contentAsString);&#13;
+var refreshToken = refreshTokenObj["refresh_token"];&#13;
+if (response.statusCode == '200') {&#13;
+    System.log('  Got refresh token')&#13;
+    System.debug('  Refresh token is ' + refreshToken);&#13;
+} else {&#13;
+    System.warn('  Got error ' + returnCode)&#13;
+    throw(content);&#13;
+}&#13;
+&#13;
+// Get bearer token&#13;
+System.log('Getting access token');&#13;
+content = '{"refreshToken": "' + refreshToken + '"}'&#13;
+System.debug('  Sending ' + content);&#13;
+var req = restHost.createRequest("POST", "/iaas/api/login", content);&#13;
+req.setHeader("Content-Type", "application/json");&#13;
+var response = req.execute();&#13;
+System.log('  HTTP Status code: ' + response.statusCode);&#13;
+var contentAsString = response.contentAsString;&#13;
+System.debug('  Content: ' + contentAsString);&#13;
+&#13;
+// Dig out bearer token&#13;
+var tokenObj = JSON.parse(contentAsString);&#13;
+var token = tokenObj["token"];&#13;
+if (response.statusCode == '200') {&#13;
+    System.log('  Got bearer token')&#13;
+    System.debug('  bearertoken is ' + token);&#13;
+} else {&#13;
+    System.warn('  Got error ' + returnCode)&#13;
+    throw(content);&#13;
+}&#13;
+&#13;
+</script>
+        <in-binding>
+            <bind name="restHost" type="REST:RESTHost" export-name="restHost"/>
+            <bind name="password" type="SecureString" export-name="password"/>
+            <bind name="username" type="string" export-name="username"/>
+        </in-binding>
+        <out-binding>
+            <bind name="token" type="string" export-name="token"/>
+        </out-binding>
+        <description>Simple task with custom script capability.</description>
+        <position y="60.0" x="300.0"/>
+    </workflow-item>
+    <workflow-item name="item2" out-name="item1" type="task" comparator="0">
+        <display-name>Get data from vRA</display-name>
+        <script encoded="false">System.log('START: Change deployment name');&#13;
+&#13;
+vmName = inputProperties.get('resourceNames')[0];&#13;
+deploymentId = inputProperties.get('deploymentId');&#13;
+System.log('Getting data from vRA');&#13;
+System.log('  VM name is ' + vmName);&#13;
+System.log('  Deployment ID is ' + deploymentId);&#13;
+</script>
+        <in-binding>
+            <bind name="inputProperties" type="Properties" export-name="inputProperties"/>
+        </in-binding>
+        <out-binding>
+            <bind name="vmName" type="string" export-name="vmName"/>
+            <bind name="deploymentId" type="string" export-name="deploymentId"/>
+        </out-binding>
+        <description>Simple task with custom script capability.</description>
+        <position y="60.0" x="160.0"/>
+    </workflow-item>
+    <workflow-item name="item3" out-name="item0" type="task" comparator="0">
+        <display-name>Change name</display-name>
+        <script encoded="false">System.log("Change name of deployment");&#13;
+&#13;
+content = '{"name":"' + vmName + '"}';&#13;
+&#13;
+&#13;
+System.debug('  Sending content:' + content);&#13;
+var sendThis = "/deployment​/api​/deployments​/" + deploymentId;&#13;
+//var sendThis = "/deployment/api/deployments/2a9b4934-2d0f-4793-a2f2-e8ea408d0b65"&#13;
+sendThis = sendThis.replace(/[^\x20-\x7E]/g, '');  // clean off invisible characters&#13;
+System.log('  Going to https://vra.srq.local' + sendThis);&#13;
+var req = restHost.createRequest("PATCH", sendThis , content);&#13;
+req.setHeader("Authorization", "Bearer " + token);&#13;
+req.setHeader("Content-Type", "application/json");&#13;
+&#13;
+System.log('  Executing PATCH call now');&#13;
+var response = req.execute();&#13;
+&#13;
+System.log('  Status code: ' + response.statusCode);&#13;
+var contentAsString = response.contentAsString;&#13;
+System.debug('  Content: ' + contentAsString);&#13;
+System.log('COMPLETE: Change deployment name');&#13;
+</script>
+        <in-binding>
+            <bind name="token" type="string" export-name="token"/>
+            <bind name="vmName" type="string" export-name="vmName"/>
+            <bind name="deploymentId" type="string" export-name="deploymentId"/>
+            <bind name="username" type="string" export-name="username"/>
+            <bind name="password" type="SecureString" export-name="password"/>
+            <bind name="restHost" type="REST:RESTHost" export-name="restHost"/>
+        </in-binding>
+        <out-binding/>
+        <description>Simple task with custom script capability.</description>
+        <position y="60.0" x="420.0"/>
+    </workflow-item>
+    <presentation/>
+</ns2:workflow>
